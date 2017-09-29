@@ -3,6 +3,7 @@ A few shaders ported from ShaderToy to ReShade
 
 # List of Shaders
 
+- 20170602_VHS (revisited) by FMS_Cat https://www.shadertoy.com/view/MdffD7
 - Amiga Boing Ball by UnitZeroOne https://www.shadertoy.com/view/4ssGWn
 - CRT Filter by NGZaharias https://www.shadertoy.com/view/ltf3WB
 - Glitch Shader B by Berkin https://www.shadertoy.com/view/4dtGzl
