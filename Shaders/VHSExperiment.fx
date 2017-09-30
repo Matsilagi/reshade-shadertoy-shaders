@@ -102,6 +102,10 @@ void VHS_PS1(in float4 pos : SV_POSITION, in float2 txcoord : TEXCOORD0, out flo
   float2 uvn = uv;
   float2 y_inv = uvn;
   
+  if (__RENDERER__ == 0x09300 || __RENDERER__ == 0x0A100 || __RENDERER__ == 0x0B000){
+	y_inv = 1-uvn.y;
+  }
+  
   float3 col = float3( 0.0, 0.0, 0.0 );
 
   // tape wave
