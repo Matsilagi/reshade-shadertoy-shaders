@@ -4,10 +4,7 @@ uniform float iGlobalTime < source = "timer"; >;
 
 float hash(in float n) { return frac(sin(n)*43758.5453123); }
 
-float mod(float x, float y)
-{
-	return x - y * floor (x/y);
-}
+#define mod(x,y) (x-y*floor(x/y))
 
 float3 PS_Nightvision(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target
 {	

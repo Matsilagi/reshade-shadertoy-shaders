@@ -4,10 +4,7 @@
 
 uniform float  iGlobalTime < source = "timer"; >;
 
-float mod(float x, float y)
-{
-  return x - y * floor(x/y);
-}
+#define mod(x,y) (x-y*floor(x/y))
 
 float2 curve(float2 uv)
 {

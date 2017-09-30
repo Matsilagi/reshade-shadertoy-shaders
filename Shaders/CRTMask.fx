@@ -50,11 +50,7 @@ float GEqual(float x, float value)
     return step(value, x);
 }
 
-float mod(float x, float y)
-{
-	return x - y * floor (x/y);
-}
-
+#define mod(x,y) (x-y*floor(x/y))
 float3 CRTMask(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
     //uv.y = -uv.y;
     //uv = uv * 1.0;

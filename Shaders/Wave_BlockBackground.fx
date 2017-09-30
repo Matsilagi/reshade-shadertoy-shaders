@@ -4,10 +4,7 @@ uniform float4 Timer < source = "timer"; >;
 #define PIOVER180 	0.017453292
 #define aspect          (BUFFER_RCP_HEIGHT/BUFFER_RCP_WIDTH)
 
-float mod(float x, float y)
-{
-  return x - y * floor(x/y);
-}
+#define mod(x,y) (x-y*floor(x/y))
 
 float4 PS_Wave(float4 vpos : SV_Position, float2 txcoord : TEXCOORD): SV_Target0
 {
