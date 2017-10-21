@@ -22,14 +22,6 @@ uniform bool bVHS_doColorCorrection <
 	ui_tooltip = "The picture will be more pink/purple.";
 > = false;
 
-uniform float fVHS_bleedAmount <
-	ui_type = "drag";
-	ui_min = "0.0";
-	ui_max = "15.0";
-	ui_label = "Bleed Stretch [VHS]";
-	ui_tooltip = "Length of the bleeding.";
-> = 3.0;
-
 uniform float fVHS_noiseSpeed <
 	ui_type = "drag";
 	ui_min = "-1.5";
@@ -59,6 +51,12 @@ sampler VHSChannel1 { Texture=VHSChannel1_tex; MinFilter=LINEAR; MagFilter=LINEA
 
 //Shader Code
 
+#if (__RENDERER__ >= 0x10000)
+	#define MUL(A, B) mul(A, B)
+#else
+	#define MUL(A, B) mul(B, A)
+#endif
+
 #define V float2(0.0,1.0)
 #define PI 3.14159265
 #define VHSRES float2(iVHS_resolutionX,iVHS_resolutionY)
@@ -67,6 +65,10 @@ sampler VHSChannel1 { Texture=VHSChannel1_tex; MinFilter=LINEAR; MagFilter=LINEA
 
 float v2random( float2 uv ) {
   return tex2D( VHSChannel1, mod( uv, float2( 1.0,1.0 ) ) ).x;
+}
+
+float2x2 rotate2D(float t) {
+	return float2x2( cos(t), sin(t), -sin(t), cos(t));
 }
 
 float3 rgb2yiq(float3 c)
@@ -85,14 +87,24 @@ float3 yiq2rgb(float3 c)
 	0.6210*c.x - 0.6474*c.y + 1.7046*c.z);
 };
 
-float3 vhsTex2D( float2 uv ) {
+#define SAMPLES 6
+
+float3 vhsTex2D( float2 uv, float rot ) {
   if ( validuv( uv ) ) {
-    float3 y = V.yxx * rgb2yiq( tex2D( ReShade::BackBuffer, uv ).xyz );
-    float3 c = V.xyy * rgb2yiq( tex2D( ReShade::BackBuffer, uv - fVHS_bleedAmount * V.yx / VHSRES.x ).xyz );
-    return yiq2rgb( y + c );
+    float3 yiq = float3( 0.0,0.0,0.0 );
+    for ( int i = 0; i < SAMPLES; i ++ ) {
+      yiq += (
+        rgb2yiq( tex2D( ReShade::BackBuffer, uv - float2( float( i ), 0.0 ) / VHSRES ).xyz ) *
+        float2( float( i ), float( SAMPLES - 1 - i ) ).yxx / float( SAMPLES - 1 )
+      ) / float( SAMPLES ) * 2.0;
+    }
+    if ( rot != 0.0 ) { yiq.yz = mul(rotate2D( rot ), yiq.yz); }
+    return yiq2rgb( yiq );
   }
   return float3( 0.1, 0.1, 0.1 );
 }
+
+
 
 void VHS_PS1(in float4 pos : SV_POSITION, in float2 txcoord : TEXCOORD0, out float4 color : COLOR0){
   float2 frgcoord = txcoord * ReShade::ScreenSize;
@@ -109,8 +121,8 @@ void VHS_PS1(in float4 pos : SV_POSITION, in float2 txcoord : TEXCOORD0, out flo
   float3 col = float3( 0.0, 0.0, 0.0 );
 
   // tape wave
-  uvn.x += ( v2random( float2( y_inv.y / 10.0, ((time*0.001)*fVHS_noiseSpeed) / 10.0 ) / 1.0 ) - 0.5 ) / VHSRES.x * 2.0;
-  uvn.x += ( v2random( float2( y_inv.y, ((time*0.001)*fVHS_noiseSpeed) * 10.0 ) ) - 0.5 ) / VHSRES.x * 2.0;
+  uvn.x += ( v2random( float2( y_inv.y / 10.0, ((time*0.001)*fVHS_noiseSpeed) / 10.0 ) / 1.0 ) - 0.5 ) / VHSRES.x * 1.0;
+  uvn.x += ( v2random( float2( y_inv.y, ((time*0.001)*fVHS_noiseSpeed) * 10.0 ) ) - 0.5 ) / VHSRES.x * 1.0;
 
   // tape crease
   float tcPhase = smoothstep( 0.9, 0.96, sin( y_inv.y * 8.0 - ( ((time*0.001)*fVHS_noiseSpeed) + 0.14 * v2random( ((time*0.001)*fVHS_noiseSpeed) * float2( 0.67, 0.59 ) ) ) * PI * 1.2 ) );
@@ -124,7 +136,7 @@ void VHS_PS1(in float4 pos : SV_POSITION, in float2 txcoord : TEXCOORD0, out flo
   uvn.x += snPhase * ( ( v2random( float2( uv.y * 100.0, ((time*0.001)*fVHS_noiseSpeed) * 10.0 ) ) - 0.5 ) / VHSRES.x * 24.0 );
 
   // fetch
-  col = vhsTex2D( uvn );
+  col = vhsTex2D( uvn, tcPhase * 0.2 + snPhase * 2.0 );
 
   // crease noise
   float cn = tcNoise * ( 0.3 + 0.7 * tcPhase );
@@ -137,13 +149,6 @@ void VHS_PS1(in float4 pos : SV_POSITION, in float2 txcoord : TEXCOORD0, out flo
     }
   }
 
-  // switching color modification
-  col = lerp(
-    col,
-    col.yzx,
-    snPhase * 0.4
-  );
-
   // ac beat
   col *= 1.0 + 0.1 * smoothstep( 0.4, 0.6, v2random( float2( 0.0, 0.1 * ( uv.y + (time*0.001) * 0.2 ) ) / 10.0 ) );
 
@@ -155,7 +160,7 @@ void VHS_PS1(in float4 pos : SV_POSITION, in float2 txcoord : TEXCOORD0, out flo
   col = rgb2yiq( col );
   
   if (bVHS_doColorCorrection){
-	col = float3( 0.1, -0.1, 0.0 ) + float3( 0.7, 2.0, 3.4 ) * col;
+	col = float3( 0.1, -0.1, 0.0 ) + float3( 0.7, 1.0, 1.4 ) * col;
   }
   
   col = yiq2rgb( col );
